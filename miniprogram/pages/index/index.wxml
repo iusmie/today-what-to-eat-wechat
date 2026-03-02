@@ -1,0 +1,25 @@
+<!-- pages/index/index.wxml -->
+<view class="container">
+  <view class="welcome">
+    <text class="motto">{{motto}}</text>
+  </view>
+  
+  <view class="user-info" wx:if="{{hasUserInfo}}">
+    <image src="{{userInfo.avatarUrl}}" class="avatar"></image>
+    <text class="nickname">{{userInfo.nickName}}</text>
+  </view>
+  
+  <view class="buttons">
+    <button class="primary-button" bindtap="startChat">开始对话</button>
+    <button class="secondary-button" bindtap="viewProfile">我的偏好</button>
+    <button class="secondary-button" bindtap="viewHistory">推荐历史</button>
+  </view>
+  
+  <view class="login-prompt" wx:if="{{!hasUserInfo && canIUseGetUserProfile}}">
+    <button bindtap="getUserProfile">授权登录</button>
+  </view>
+  
+  <view class="login-prompt" wx:if="{{!hasUserInfo && !canIUseGetUserProfile}}">
+    请升级微信版本以使用完整功能
+  </view>
+</view>

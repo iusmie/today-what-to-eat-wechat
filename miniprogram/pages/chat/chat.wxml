@@ -1,0 +1,23 @@
+<!-- pages/chat/chat.wxml -->
+<view class="chat-container">
+  <view wx:for="{{messages}}" wx:key="index" class="message {{item.type === 'user' ? 'message-user' : 'message-bot'}}">
+    <text>{{item.text}}</text>
+    <text class="timestamp">{{item.timestamp}}</text>
+  </view>
+  
+  <view wx:if="{{isTyping}}" class="message message-bot">
+    <text>正在思考...</text>
+  </view>
+</view>
+
+<view class="input-container">
+  <input 
+    class="input-box" 
+    value="{{inputText}}" 
+    bindinput="onInput" 
+    placeholder="输入你的想法..."
+    confirm-type="send"
+    bindconfirm="sendMessage"
+  />
+  <button class="send-button" bindtap="sendMessage">发送</button>
+</view>
