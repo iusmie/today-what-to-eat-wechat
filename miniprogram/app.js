@@ -11,6 +11,9 @@ App({
       });
     }
 
+    // 检查用户登录状态
+    this.checkLoginStatus();
+
     // 全局用户数据
     this.globalData = {
       userInfo: null,
@@ -20,8 +23,122 @@ App({
         dietaryRestrictions: [],
         healthConditions: [],
         maxPrepTime: 60,
-        difficultyLevel: '中等'
-      }
+        difficultyLevel: '中等',
+        cookingPreference: '自己做' // '自己做', '外卖', '工作日外卖'
+      },
+      isFirstLogin: false, // 标记是否首次登录
+      hasCompletedOnboarding: false // 标记是否完成引导
     };
+  },
+
+  // 检查登录状态
+  checkLoginStatus() {
+    const that = this;
+    
+    // 获取用户信息
+    wx.getSetting({
+      success(res) {
+        if (res.authSetting['scope.userInfo']) {
+          // 已经授权，可以直接获取用户信息
+          wx.getUserInfo({
+            success: function(res) {
+              that.globalData.userInfo = res.userInfo;
+              console.log('用户已登录:', res.userInfo);
+              
+              // 检查是否是首次登录
+              that.checkFirstLogin();
+            }
+          });
+        } else {
+          // 未授权，需要跳转到授权页面
+          console.log('用户未授权，需要登录');
+          // 这里会在页面 onLoad 中处理跳转
+        }
+      }
+    });
+  },
+
+  // 检查是否首次登录
+  checkFirstLogin() {
+    const that = this;
+    const db = wx.cloud.database();
+    
+    if (!this.globalData.userInfo) return;
+    
+    db.collection('user_preferences')
+      .where({
+        _openid: wx.cloud.CloudID(this.globalData.userInfo.openId)
+      })
+      .get()
+      .then(res => {
+        if (res.data.length === 0) {
+          // 首次登录
+          this.globalData.isFirstLogin = true;
+          this.globalData.hasCompletedOnboarding = false;
+        } else {
+          // 已有偏好设置
+          this.globalData.hasCompletedOnboarding = true;
+          this.globalData.userPreferences = res.data[0].preferences || this.globalData.userPreferences;
+        }
+        console.log('用户偏好检查完成:', {
+          isFirstLogin: this.globalData.isFirstLogin,
+          hasCompletedOnboarding: this.globalData.hasCompletedOnboarding
+        });
+      })
+      .catch(err => {
+        console.error('检查用户偏好失败:', err);
+        this.globalData.isFirstLogin = true;
+        this.globalData.hasCompletedOnboarding = false;
+      });
+  },
+
+  // 保存用户偏好
+  saveUserPreferences(preferences) {
+    const that = this;
+    const db = wx.cloud.database();
+    
+    if (!this.globalData.userInfo) {
+      console.warn('用户未登录，无法保存偏好');
+      return Promise.reject('用户未登录');
+    }
+    
+    return db.collection('user_preferences')
+      .where({
+        _openid: wx.cloud.CloudID(this.globalData.userInfo.openId)
+      })
+      .get()
+      .then(res => {
+        if (res.data.length > 0) {
+          // 更新现有记录
+          return db.collection('user_preferences')
+            .doc(res.data[0]._id)
+            .update({
+              data: {
+                preferences: preferences,
+                updatedAt: new Date()
+              }
+            });
+        } else {
+          // 创建新记录
+          return db.collection('user_preferences')
+            .add({
+              data: {
+                preferences: preferences,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+        }
+      })
+      .then(res => {
+        this.globalData.userPreferences = preferences;
+        this.globalData.hasCompletedOnboarding = true;
+        console.log('用户偏好保存成功');
+        return res;
+      })
+      .catch(err => {
+        console.error('保存用户偏好失败:', err);
+        return Promise.reject(err);
+      });
   }
 });
