@@ -2,7 +2,8 @@
 Page({
   data: {
     isLoggingIn: false,
-    showSkip: false
+    showSkip: false,
+    isLoading: false
   },
 
   onLoad() {
@@ -20,13 +21,17 @@ Page({
   },
 
   checkLoginStatus() {
+    this.setData({ isLoading: true });
     const app = getApp();
+    
     wx.cloud.callFunction({
       name: 'checkUserExists',
       success: res => {
+        this.setData({ isLoading: false });
         if (res.result.exists) {
           // 用户已存在，直接跳转
           app.globalData.userPreferences = res.result.preferences;
+          app.globalData.userInfo = res.result.userInfo;
           wx.redirectTo({
             url: '/pages/chat/chat'
           });
@@ -37,30 +42,54 @@ Page({
       },
       fail: err => {
         console.log('检查用户状态失败', err);
-        this.setData({ showSkip: true });
+        this.setData({ 
+          isLoading: false,
+          showSkip: true 
+        });
+        wx.showToast({
+          title: '网络错误，请重试',
+          icon: 'none'
+        });
       }
     });
   },
 
-  onGetUserInfo(e) {
-    if (e.detail.userInfo) {
-      this.handleLogin(e.detail.userInfo);
-    } else {
-      // 用户拒绝授权
-      wx.showModal({
-        title: '授权提示',
-        content: '需要您的授权才能使用完整功能，是否重新授权？',
-        success: (res) => {
-          if (res.confirm) {
-            // 重新尝试授权
+  // 微信一键登录
+  loginWithWeChat() {
+    const that = this;
+    this.setData({ isLoggingIn: true, isLoading: true });
+    
+    // 获取用户信息
+    wx.getUserProfile({
+      desc: '用于完善用户资料',
+      success: (res) => {
+        that.handleLogin(res.userInfo);
+      },
+      fail: (err) => {
+        console.error('获取用户信息失败', err);
+        wx.showModal({
+          title: '授权失败',
+          content: '需要您的授权才能使用完整功能，是否重新授权？',
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              // 用户确认重新授权
+              that.loginWithWeChat();
+            } else {
+              // 显示跳过选项
+              that.setData({ 
+                isLoggingIn: false, 
+                isLoading: false,
+                showSkip: true 
+              });
+            }
           }
-        }
-      });
-    }
+        });
+      }
+    });
   },
 
   handleLogin(userInfo) {
-    this.setData({ isLoggingIn: true });
+    this.setData({ isLoggingIn: true, isLoading: true });
     
     // 保存用户信息
     const app = getApp();
@@ -72,10 +101,18 @@ Page({
       data: { userInfo },
       success: res => {
         console.log('用户信息保存成功', res);
-        // 跳转到聊天页面
-        wx.redirectTo({
-          url: '/pages/chat/chat'
-        });
+        if (res.result.success) {
+          // 跳转到聊天页面
+          wx.redirectTo({
+            url: '/pages/chat/chat'
+          });
+        } else {
+          wx.showToast({
+            title: '登录失败，请重试',
+            icon: 'none'
+          });
+          this.setData({ isLoggingIn: false, isLoading: false });
+        }
       },
       fail: err => {
         console.error('用户信息保存失败', err);
@@ -83,7 +120,7 @@ Page({
           title: '登录失败，请重试',
           icon: 'none'
         });
-        this.setData({ isLoggingIn: false });
+        this.setData({ isLoggingIn: false, isLoading: false });
       }
     });
   },

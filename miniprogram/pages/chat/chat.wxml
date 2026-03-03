@@ -1,51 +1,65 @@
 <!-- AI流式对话界面 -->
-<view class="chat-container">
+<view class="container">
   <!-- 消息列表 -->
   <scroll-view 
-    class="messages" 
+    class="messages-container" 
     scroll-y="{{true}}" 
     scroll-with-animation="{{true}}"
     scroll-into-view="{{lastMessageId}}"
     enable-back-to-top="{{true}}"
+    bindscrolltolower="onScrollBottom"
   >
+    <!-- 欢迎卡片 -->
+    <view wx:if="{{messages.length === 0}}" class="welcome-card">
+      <view class="welcome-icon">🍳</view>
+      <text class="welcome-title">你好！我是你的美食推荐助手</text>
+      <text class="welcome-subtitle">告诉我你的饮食偏好，让我帮你解决"今天吃什么"的难题！</text>
+      <view class="welcome-features">
+        <view class="feature-item">🍽️ 个性化推荐</view>
+        <view class="feature-item">⏱️ 快速响应</view>
+        <view class="feature-item">💬 自然对话</view>
+      </view>
+    </view>
+
+    <!-- 消息内容 -->
     <block wx:for="{{messages}}" wx:key="index">
       <view 
-        class="message {{item.type === 'user' ? 'user-message' : 'bot-message'}}"
+        class="message {{item.type === 'user' ? 'user' : 'bot'}}"
         id="msg-{{index}}"
       >
-        <view class="message-content">
-          <text class="message-text">{{item.text}}</text>
-          <text class="message-time">{{item.timestamp}}</text>
-        </view>
+        <text class="message-text">{{item.text}}</text>
+        <text class="timestamp">{{item.timestamp}}</text>
       </view>
     </block>
     
     <!-- AI正在输入指示器 -->
     <view wx:if="{{isTyping}}" class="typing-indicator">
-      <view class="typing-dot"></view>
-      <view class="typing-dot"></view>
-      <view class="typing-dot"></view>
+      <text class="typing-text">AI正在思考...</text>
+      <view class="typing-dots">
+        <view class="typing-dot"></view>
+        <view class="typing-dot"></view>
+        <view class="typing-dot"></view>
+      </view>
     </view>
   </scroll-view>
 
   <!-- 输入区域 -->
-  <view class="input-area">
+  <view class="input-container">
     <view class="input-wrapper">
       <input 
-        class="message-input" 
+        class="input-field" 
         value="{{inputText}}" 
         bindinput="onInput" 
-        placeholder="告诉我你的想法..." 
+        placeholder="比如：我喜欢中餐，不吃辣..." 
         confirm-type="send"
         bindconfirm="sendMessage"
+        focus="{{true}}"
       />
       <button 
-        class="send-button" 
+        class="send-button {{!inputText.trim() ? 'disabled' : ''}}" 
         bindtap="sendMessage"
         disabled="{{!inputText.trim()}}"
-      >
-        <text class="send-icon">➤</text>
-      </button>
+      ></button>
     </view>
   </view>
 </view>
