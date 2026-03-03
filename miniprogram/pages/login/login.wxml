@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="welcome-section">
+    <image src="/images/logo.png" class="logo" mode="aspectFit"></image>
+    <text class="title">今天吃什么</text>
+    <text class="subtitle">AI美食推荐助手</text>
+  </view>
+  
+  <view class="auth-section">
+    <button 
+      open-type="getUserProfile" 
+      bindgetuserprofile="onGetUserProfile"
+      class="login-button"
+    >
+      微信授权登录
+    </button>
+    
+    <view class="privacy-notice">
+      <text>登录后可享受个性化推荐服务</text>
+      <text>您的数据将安全存储在云端</text>
+    </view>
+  </view>
+  
+  <view class="loading-section" wx:if="{{isLoading}}">
+    <view class="loading-text">正在初始化...</view>
+    <view class="loading-spinner"></view>
+  </view>
+</view>

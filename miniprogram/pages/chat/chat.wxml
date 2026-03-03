@@ -1,23 +1,51 @@
-<!-- pages/chat/chat.wxml -->
+<!-- AI流式对话界面 -->
 <view class="chat-container">
-  <view wx:for="{{messages}}" wx:key="index" class="message {{item.type === 'user' ? 'message-user' : 'message-bot'}}">
-    <text>{{item.text}}</text>
-    <text class="timestamp">{{item.timestamp}}</text>
-  </view>
-  
-  <view wx:if="{{isTyping}}" class="message message-bot">
-    <text>正在思考...</text>
-  </view>
-</view>
+  <!-- 消息列表 -->
+  <scroll-view 
+    class="messages" 
+    scroll-y="{{true}}" 
+    scroll-with-animation="{{true}}"
+    scroll-into-view="{{lastMessageId}}"
+    enable-back-to-top="{{true}}"
+  >
+    <block wx:for="{{messages}}" wx:key="index">
+      <view 
+        class="message {{item.type === 'user' ? 'user-message' : 'bot-message'}}"
+        id="msg-{{index}}"
+      >
+        <view class="message-content">
+          <text class="message-text">{{item.text}}</text>
+          <text class="message-time">{{item.timestamp}}</text>
+        </view>
+      </view>
+    </block>
+    
+    <!-- AI正在输入指示器 -->
+    <view wx:if="{{isTyping}}" class="typing-indicator">
+      <view class="typing-dot"></view>
+      <view class="typing-dot"></view>
+      <view class="typing-dot"></view>
+    </view>
+  </scroll-view>
 
-<view class="input-container">
-  <input 
-    class="input-box" 
-    value="{{inputText}}" 
-    bindinput="onInput" 
-    placeholder="输入你的想法..."
-    confirm-type="send"
-    bindconfirm="sendMessage"
-  />
-  <button class="send-button" bindtap="sendMessage">发送</button>
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <view class="input-wrapper">
+      <input 
+        class="message-input" 
+        value="{{inputText}}" 
+        bindinput="onInput" 
+        placeholder="告诉我你的想法..." 
+        confirm-type="send"
+        bindconfirm="sendMessage"
+      />
+      <button 
+        class="send-button" 
+        bindtap="sendMessage"
+        disabled="{{!inputText.trim()}}"
+      >
+        <text class="send-icon">➤</text>
+      </button>
+    </view>
+  </view>
 </view>
