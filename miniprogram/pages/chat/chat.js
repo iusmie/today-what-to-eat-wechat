@@ -8,23 +8,26 @@ Page({
     isTyping: false,
     conversationState: 'greeting', // greeting, collecting_preferences, recommending, feedback
     collectedPreferences: {
-      cuisines: [],
-      mealTypes: [],
+      cuisines: ['中餐'],
+      mealTypes: ['午餐', '晚餐'],
+      taste: '清淡',       // 重口味 | 清淡
+      dining: '点外卖',    // 点外卖 | 自己做
+      health: '随便吃',    // 减脂期 | 随便吃
       dietaryRestrictions: [],
       healthConditions: [],
       maxPrepTime: 60,
       difficultyLevel: '中等',
-      cookingPreference: '自己做' // '自己做', '外卖', '工作日外卖'
+      cookingPreference: '自己做'
     },
     currentRecommendation: null,
     lastMessageId: '',
     showQuickReplies: true
   },
 
-  onLoad() {
-    // 初始化对话
-    this.addBotMessage('你好！我是你的美食推荐助手。让我帮你解决"今天吃什么"的难题吧！');
-    this.addBotMessage('首先，我想了解一下你的饮食偏好。你有什么特别喜欢的菜系吗？比如中餐、西餐、日料等？');
+  onLoad() {},
+
+  onShow() {
+    wx.hideHomeButton();
   },
 
   onInput(e) {
@@ -78,19 +81,90 @@ Page({
     this.scrollToBottom();
   },
 
-  addBotMessage(text) {
+  addBotMessage(text, extra) {
     const messages = this.data.messages;
     const messageId = 'msg-' + messages.length;
-    messages.push({
+    const msg = {
       type: 'bot',
-      text: text,
+      text: text || '',
       timestamp: new Date().toLocaleTimeString()
-    });
+    };
+    if (extra) {
+      if (extra.interactive) msg.interactive = extra.interactive;
+      if (extra.recommendation) msg.recommendation = extra.recommendation;
+    }
+    messages.push(msg);
     this.setData({ 
       messages: messages,
       lastMessageId: messageId
     });
     this.scrollToBottom();
+  },
+
+  /** 首次交互：显示偏好选择卡片 */
+  showPreferenceCard() {
+    const prefs = this.data.collectedPreferences;
+    this.addBotMessage('为了更精准推荐, 先选选你的偏好吧~', {
+      interactive: {
+        taste: prefs.taste,
+        dining: prefs.dining,
+        health: prefs.health
+      }
+    });
+    this.setData({
+      conversationState: 'collecting_preferences'
+    });
+  },
+
+  /** 偏好选择：口味/用餐/健康 */
+  selectPreference(e) {
+    const { category, value } = e.currentTarget.dataset;
+    const prefs = { ...this.data.collectedPreferences, [category]: value };
+    const messages = [...this.data.messages];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].type === 'bot' && messages[i].interactive) {
+        messages[i] = {
+          ...messages[i],
+          interactive: { ...messages[i].interactive, [category]: value }
+        };
+        break;
+      }
+    }
+    this.setData({ collectedPreferences: prefs, messages });
+  },
+
+  /** 换一个推荐 */
+  onChangeRecommendation() {
+    this.setData({ isTyping: true });
+    setTimeout(() => {
+      this.setData({ isTyping: false });
+      this.generateRecommendation();
+    }, 600);
+  },
+
+  /** 点外卖 */
+  onOrderDelivery() {
+    wx.showToast({
+      title: '即将跳转外卖平台',
+      icon: 'none'
+    });
+  },
+
+  /** 点击生成推荐 */
+  onGenerateRecommendation() {
+    const prefs = this.data.collectedPreferences;
+    prefs.cookingPreference = prefs.dining === '点外卖' ? '外卖' : '自己做';
+    if (prefs.health === '减脂期') {
+      prefs.healthConditions = ['减脂'];
+    }
+    this.setData({
+      collectedPreferences: prefs,
+      isTyping: true
+    });
+    setTimeout(() => {
+      this.setData({ isTyping: false });
+      this.generateRecommendation();
+    }, 800);
   },
 
   scrollToBottom() {
@@ -109,7 +183,10 @@ Page({
     
     switch (state) {
       case 'greeting':
-        this.handleCuisinePreference(userInput);
+        this.showPreferenceCard();
+        break;
+      case 'collecting_preferences':
+        this.showPreferenceCard();
         break;
       case 'collecting_cuisines':
         this.handleMealTypePreference(userInput);
@@ -288,10 +365,10 @@ Page({
       cookingPref = '自己做';
     }
     
-    const prefs = this.data.collectedPreferences;
-    prefs.cookingPreference = cookingPref;
+    const cookingPrefs = this.data.collectedPreferences;
+    cookingPrefs.cookingPreference = cookingPref;
     this.setData({ 
-      collectedPreferences: prefs,
+      collectedPreferences: cookingPrefs,
       conversationState: 'collecting_cooking_preference_done'
     });
     
@@ -346,29 +423,25 @@ Page({
     
     const recommendation = filteredRecipes[Math.floor(Math.random() * filteredRecipes.length)];
     
-    let recommendationText = `🍽️ 为你推荐：${recommendation.name}\n`;
-    if (recommendation.category) {
-      recommendationText += `菜系：${recommendation.category}\n`;
-    }
-    if (recommendation.prepTime) {
-      recommendationText += `准备时间：${recommendation.prepTime}分钟\n`;
-    }
-    if (recommendation.difficulty) {
-      recommendationText += `难度：${recommendation.difficulty}\n`;
-    }
-    if (recommendation.ingredients && recommendation.ingredients.length > 0) {
-      recommendationText += `主要食材：${recommendation.ingredients.slice(0, 3).join('、')}\n`;
-    }
-    if (recommendation.steps && recommendation.steps.length > 0) {
-      recommendationText += `\n制作步骤概览：\n${recommendation.steps.slice(0, 2).map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
-      if (recommendation.steps.length > 2) {
-        recommendationText += `\n...（共${recommendation.steps.length}步）`;
-      }
-    }
+    const isLight = prefs.taste === '清淡' || prefs.health === '减脂期';
+    const tag = isLight ? '低脂高蛋白' : '美味推荐';
+    const price = 15 + Math.floor(Math.random() * 25);
+    const prepMin = recommendation.prepTime || 25;
+    const calories = isLight ? 280 + Math.floor(Math.random() * 80) : 350 + Math.floor(Math.random() * 150);
     
-    recommendationText += `\n\n你觉得这个推荐怎么样？喜欢/不喜欢？`;
+    const cardData = {
+      intro: isLight ? '根据你的偏好,为你推荐这道低卡美味:' : '根据你的偏好,为你推荐这道美味:',
+      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
+      tag: tag,
+      name: recommendation.name,
+      price: `¥${price}`,
+      calories: `${calories} kcal`,
+      time: `${prepMin} min`,
+      distance: '1.2 km',
+      nutrients: { carb: 40, protein: 35, fat: 25 }
+    };
     
-    this.addBotMessage(recommendationText);
+    this.addBotMessage('', { recommendation: cardData });
     this.setData({ 
       conversationState: 'recommending',
       currentRecommendation: recommendation
@@ -411,8 +484,8 @@ Page({
     
     // 重置对话状态，准备下一次交互
     setTimeout(() => {
-      this.addBotMessage('你还可以：\n1. 点击"我的偏好"修改设置\n2. 查看"推荐历史"\n3. 再次点击"开始对话"获取新推荐');
-      this.setData({ showQuickReplies: true });
+      this.addBotMessage('你还可以：\n1. 点击"我的偏好"修改设置\n2. 查看"推荐历史"\n3. 再次点击快捷入口获取新推荐');
+      this.setData({ showQuickReplies: true, conversationState: 'greeting' });
     }, 2000);
   },
 
@@ -421,8 +494,11 @@ Page({
       messages: [],
       conversationState: 'greeting',
       collectedPreferences: {
-        cuisines: [],
-        mealTypes: [],
+        cuisines: ['中餐'],
+        mealTypes: ['午餐', '晚餐'],
+        taste: '清淡',
+        dining: '点外卖',
+        health: '随便吃',
         dietaryRestrictions: [],
         healthConditions: [],
         maxPrepTime: 60,
