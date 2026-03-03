@@ -1,65 +1,173 @@
-<!-- AI流式对话界面 -->
-<view class="container">
-  <!-- 消息列表 -->
+<!-- 聊天页面 -->
+<view class="chat-page">
+  <!-- 聊天内容 -->
   <scroll-view 
-    class="messages-container" 
+    class="chat-content {{messages.length === 0 ? 'chat-content-welcome' : ''}}" 
     scroll-y="{{true}}" 
     scroll-with-animation="{{true}}"
     scroll-into-view="{{lastMessageId}}"
     enable-back-to-top="{{true}}"
-    bindscrolltolower="onScrollBottom"
+    enable-flex="{{messages.length === 0}}"
   >
-    <!-- 欢迎卡片 -->
-    <view wx:if="{{messages.length === 0}}" class="welcome-card">
-      <view class="welcome-icon">🍳</view>
-      <text class="welcome-title">你好！我是你的美食推荐助手</text>
-      <text class="welcome-subtitle">告诉我你的饮食偏好，让我帮你解决"今天吃什么"的难题！</text>
-      <view class="welcome-features">
-        <view class="feature-item">🍽️ 个性化推荐</view>
-        <view class="feature-item">⏱️ 快速响应</view>
-        <view class="feature-item">💬 自然对话</view>
+    <!-- 欢迎页：快捷入口卡片（无消息时） -->
+    <view wx:if="{{messages.length === 0}}" class="welcome-cards">
+      <view class="quick-action-btn" bindtap="selectQuickReply" data-reply="中午吃什么">
+        <view class="btn-icon">🍱</view>
+        <text class="btn-text">中午吃什么</text>
+        <text class="btn-arrow">›</text>
+      </view>
+      <view class="quick-action-btn" bindtap="selectQuickReply" data-reply="减脂餐推荐">
+        <view class="btn-icon">🥗</view>
+        <text class="btn-text">减脂餐推荐</text>
+        <text class="btn-arrow">›</text>
+      </view>
+      <view class="quick-action-btn" bindtap="selectQuickReply" data-reply="今晚做点啥">
+        <view class="btn-icon">🍳</view>
+        <text class="btn-text">今晚做点啥</text>
+        <text class="btn-arrow">›</text>
+      </view>
+      <view class="quick-action-btn" bindtap="selectQuickReply" data-reply="附近美食">
+        <view class="btn-icon">🗺️</view>
+        <text class="btn-text">附近美食</text>
+        <text class="btn-arrow">›</text>
+      </view>
+      <view class="quick-action-btn" bindtap="selectQuickReply" data-reply="早餐推荐">
+        <view class="btn-icon">🥐</view>
+        <text class="btn-text">早餐推荐</text>
+        <text class="btn-arrow">›</text>
       </view>
     </view>
 
-    <!-- 消息内容 -->
+    <!-- 消息列表 -->
     <block wx:for="{{messages}}" wx:key="index">
       <view 
-        class="message {{item.type === 'user' ? 'user' : 'bot'}}"
+        class="message-row {{item.type === 'user' ? 'user' : 'ai'}}"
         id="msg-{{index}}"
       >
-        <text class="message-text">{{item.text}}</text>
-        <text class="timestamp">{{item.timestamp}}</text>
+        <view class="avatar {{item.type === 'user' ? 'user' : 'ai'}}">{{item.type === 'user' ? '👤' : '🤖'}}</view>
+        <view class="bubble {{item.interactive ? 'bubble-interactive' : ''}} {{item.recommendation ? 'bubble-recommend' : ''}}">
+          <text wx:if="{{item.text}}" class="bubble-text">{{item.text}}</text>
+          <!-- 推荐卡片 -->
+          <view wx:if="{{item.recommendation}}" class="rec-card">
+            <text class="rec-intro">{{item.recommendation.intro}}</text>
+            <view class="rec-image-wrap">
+              <image class="rec-image" src="{{item.recommendation.image}}" mode="aspectFill" />
+              <view class="rec-tag">{{item.recommendation.tag}}</view>
+            </view>
+            <view class="rec-name-row">
+              <text class="rec-name">{{item.recommendation.name}}</text>
+              <text class="rec-price">{{item.recommendation.price}}</text>
+            </view>
+            <view class="rec-metrics">
+              <text class="rec-metric">🔥 {{item.recommendation.calories}}</text>
+              <text class="rec-metric">⏱ {{item.recommendation.time}}</text>
+              <text class="rec-metric">📍 {{item.recommendation.distance}}</text>
+            </view>
+            <view class="rec-nutrients">
+              <text class="rec-nut-title">营养分布</text>
+              <view class="rec-nut-bar">
+                <view class="rec-nut-seg carb" style="width: {{item.recommendation.nutrients.carb}}%"></view>
+                <view class="rec-nut-seg protein" style="width: {{item.recommendation.nutrients.protein}}%"></view>
+                <view class="rec-nut-seg fat" style="width: {{item.recommendation.nutrients.fat}}%"></view>
+              </view>
+              <view class="rec-nut-legend">
+                <text>碳水 {{item.recommendation.nutrients.carb}}%</text>
+                <text>蛋白 {{item.recommendation.nutrients.protein}}%</text>
+                <text>脂肪 {{item.recommendation.nutrients.fat}}%</text>
+              </view>
+            </view>
+            <view class="rec-actions">
+              <view class="rec-btn rec-btn-secondary" bindtap="onChangeRecommendation">🔄 换一个</view>
+              <view class="rec-btn rec-btn-primary" bindtap="onOrderDelivery">🛒 点外卖</view>
+            </view>
+            <text class="rec-hint">喜欢这个推荐吗？输入 喜欢/不喜欢 告诉我</text>
+          </view>
+          <!-- 交互式偏好选择卡片 -->
+          <view wx:if="{{item.interactive}}" class="pref-card">
+            <view class="pref-group">
+              <text class="pref-title">口味偏好</text>
+              <view class="pref-options">
+                <view 
+                  class="pref-option {{item.interactive.taste === '重口味' ? 'selected' : ''}}"
+                  bindtap="selectPreference"
+                  data-category="taste"
+                  data-value="重口味"
+                >🌶️ 重口味</view>
+                <view 
+                  class="pref-option {{item.interactive.taste === '清淡' ? 'selected' : ''}}"
+                  bindtap="selectPreference"
+                  data-category="taste"
+                  data-value="清淡"
+                >🥬 清淡</view>
+              </view>
+            </view>
+            <view class="pref-group">
+              <text class="pref-title">用餐方式</text>
+              <view class="pref-options">
+                <view 
+                  class="pref-option {{item.interactive.dining === '点外卖' ? 'selected' : ''}}"
+                  bindtap="selectPreference"
+                  data-category="dining"
+                  data-value="点外卖"
+                >🛵 点外卖</view>
+                <view 
+                  class="pref-option {{item.interactive.dining === '自己做' ? 'selected' : ''}}"
+                  bindtap="selectPreference"
+                  data-category="dining"
+                  data-value="自己做"
+                >🍳 自己做</view>
+              </view>
+            </view>
+            <view class="pref-group">
+              <text class="pref-title">健康目标</text>
+              <view class="pref-options">
+                <view 
+                  class="pref-option {{item.interactive.health === '减脂期' ? 'selected' : ''}}"
+                  bindtap="selectPreference"
+                  data-category="health"
+                  data-value="减脂期"
+                >💪 减脂期</view>
+                <view 
+                  class="pref-option {{item.interactive.health === '随便吃' ? 'selected' : ''}}"
+                  bindtap="selectPreference"
+                  data-category="health"
+                  data-value="随便吃"
+                >😊 随便吃</view>
+              </view>
+            </view>
+            <view class="pref-generate-btn" bindtap="onGenerateRecommendation">生成推荐</view>
+          </view>
+          <text wx:if="{{!item.interactive && !item.recommendation}}" class="timestamp">{{item.timestamp}}</text>
+        </view>
       </view>
     </block>
     
-    <!-- AI正在输入指示器 -->
-    <view wx:if="{{isTyping}}" class="typing-indicator">
-      <text class="typing-text">AI正在思考...</text>
-      <view class="typing-dots">
-        <view class="typing-dot"></view>
-        <view class="typing-dot"></view>
-        <view class="typing-dot"></view>
+    <!-- AI正在输入 -->
+    <view wx:if="{{isTyping}}" class="message-row ai">
+      <view class="avatar ai">🤖</view>
+      <view class="bubble typing-bubble">
+        <text class="typing-text">正在思考...</text>
+        <view class="typing-dots">
+          <view class="typing-dot"></view>
+          <view class="typing-dot"></view>
+          <view class="typing-dot"></view>
+        </view>
       </view>
     </view>
   </scroll-view>
 
-  <!-- 输入区域 -->
-  <view class="input-container">
-    <view class="input-wrapper">
+  <!-- 底部输入区 -->
+  <view class="input-area-wrapper">
+    <view class="input-box">
       <input 
         class="input-field" 
         value="{{inputText}}" 
         bindinput="onInput" 
-        placeholder="比如：我喜欢中餐，不吃辣..." 
+        placeholder="说说你的口味或限制..."
         confirm-type="send"
         bindconfirm="sendMessage"
-        focus="{{true}}"
       />
-      <button 
-        class="send-button {{!inputText.trim() ? 'disabled' : ''}}" 
-        bindtap="sendMessage"
-        disabled="{{!inputText.trim()}}"
-      ></button>
+      <view class="send-btn {{!inputText.trim() ? 'send-btn-disabled' : ''}}" bindtap="sendMessage">➤</view>
     </view>
   </view>
 </view>
