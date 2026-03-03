@@ -20,11 +20,13 @@ exports.main = async (event, context) => {
     if (userRecord.data.length > 0) {
       return {
         exists: true,
+        userInfo: userRecord.data[0].userInfo || null,
         preferences: userRecord.data[0].preferences || null
       }
     } else {
       return {
         exists: false,
+        userInfo: null,
         preferences: null
       }
     }
@@ -32,6 +34,7 @@ exports.main = async (event, context) => {
     console.error('检查用户存在性失败:', error)
     return {
       exists: false,
+      userInfo: null,
       preferences: null,
       error: error.message
     }
