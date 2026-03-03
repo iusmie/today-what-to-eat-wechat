@@ -16,7 +16,9 @@ Page({
       difficultyLevel: '中等',
       cookingPreference: '自己做' // '自己做', '外卖', '工作日外卖'
     },
-    currentRecommendation: null
+    currentRecommendation: null,
+    lastMessageId: '',
+    showQuickReplies: true
   },
 
   onLoad() {
@@ -37,7 +39,11 @@ Page({
 
     // 添加用户消息
     this.addUserMessage(userMessage);
-    this.setData({ inputText: '', isTyping: true });
+    this.setData({ 
+      inputText: '', 
+      isTyping: true,
+      showQuickReplies: false
+    });
 
     // 处理用户输入并生成AI响应
     setTimeout(() => {
@@ -45,25 +51,45 @@ Page({
     }, 1000);
   },
 
+  selectQuickReply(e) {
+    const reply = e.currentTarget.dataset.reply;
+    this.setData({
+      inputText: reply,
+      showQuickReplies: false
+    });
+    // 自动发送
+    setTimeout(() => {
+      this.sendMessage();
+    }, 300);
+  },
+
   addUserMessage(text) {
     const messages = this.data.messages;
+    const messageId = 'msg-' + messages.length;
     messages.push({
       type: 'user',
       text: text,
       timestamp: new Date().toLocaleTimeString()
     });
-    this.setData({ messages: messages });
+    this.setData({ 
+      messages: messages,
+      lastMessageId: messageId
+    });
     this.scrollToBottom();
   },
 
   addBotMessage(text) {
     const messages = this.data.messages;
+    const messageId = 'msg-' + messages.length;
     messages.push({
       type: 'bot',
       text: text,
       timestamp: new Date().toLocaleTimeString()
     });
-    this.setData({ messages: messages });
+    this.setData({ 
+      messages: messages,
+      lastMessageId: messageId
+    });
     this.scrollToBottom();
   },
 
@@ -72,6 +98,10 @@ Page({
       scrollTop: 100000,
       duration: 100
     });
+  },
+
+  onScrollBottom() {
+    // 滚动到底部时的处理
   },
 
   processUserInput(userInput) {
@@ -266,26 +296,6 @@ Page({
     });
     
     this.addBotMessage(`明白了！你的用餐偏好是：${cookingPref}。现在让我为你推荐一个合适的菜品...`);
-  },
-
-  handleCookingPreference(userInput) {
-    let cookingPref = '自己做';
-    if (userInput.includes('外卖') && !userInput.includes('工作日')) {
-      cookingPref = '外卖';
-    } else if (userInput.includes('工作日') && userInput.includes('外卖')) {
-      cookingPref = '工作日外卖';
-    } else if (userInput.includes('自己')) {
-      cookingPref = '自己做';
-    }
-    
-    const prefs = this.data.collectedPreferences;
-    prefs.cookingPreference = cookingPref;
-    this.setData({ 
-      collectedPreferences: prefs,
-      conversationState: 'collecting_cooking_preference'
-    });
-    
-    this.addBotMessage(`明白了！你的用餐偏好是：${cookingPref}。现在让我为你推荐一个合适的菜品...`);
     
     // 延迟一下再生成推荐，给用户时间看到消息
     setTimeout(() => {
@@ -402,6 +412,7 @@ Page({
     // 重置对话状态，准备下一次交互
     setTimeout(() => {
       this.addBotMessage('你还可以：\n1. 点击"我的偏好"修改设置\n2. 查看"推荐历史"\n3. 再次点击"开始对话"获取新推荐');
+      this.setData({ showQuickReplies: true });
     }, 2000);
   },
 
@@ -418,7 +429,8 @@ Page({
         difficultyLevel: '中等',
         cookingPreference: '自己做'
       },
-      currentRecommendation: null
+      currentRecommendation: null,
+      showQuickReplies: true
     });
     this.onLoad();
   }
