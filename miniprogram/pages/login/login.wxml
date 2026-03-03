@@ -1,74 +1,29 @@
-<view class="login-container">
-  <!-- 背景渐变 -->
-  <view class="background-gradient"></view>
-  
-  <!-- 主要内容区域 -->
-  <view class="content-wrapper">
-    <!-- Logo和标题 -->
-    <view class="header-section">
+<!-- 登录页面 - 高保真原型风格 -->
+<view class="login-page">
+  <view class="login-content">
+    <!-- Logo 区域 -->
+    <view class="logo-section">
       <view class="logo-wrapper">
-        <image src="/images/logo.png" class="app-logo" mode="aspectFit"></image>
+        <text class="logo-icon">🍽️</text>
       </view>
-      <view class="title-section">
-        <text class="app-title">今天吃什么</text>
-        <text class="app-subtitle">AI美食推荐助手</text>
-      </view>
+      <text class="app-name">今天吃什么</text>
+      <text class="app-slogan">AI 智能饮食顾问\n帮你解决每日最大的难题</text>
     </view>
     
-    <!-- 功能介绍卡片 -->
-    <view class="features-card">
-      <view class="feature-item">
-        <view class="feature-icon">🍽️</view>
-        <text class="feature-text">智能菜品推荐</text>
-      </view>
-      <view class="feature-item">
-        <view class="feature-icon">💬</view>
-        <text class="feature-text">自然对话交互</text>
-      </view>
-      <view class="feature-item">
-        <view class="feature-icon">🎯</view>
-        <text class="feature-text">个性化偏好</text>
-      </view>
+    <!-- 登录按钮 -->
+    <view wx:if="{{!isLoggingIn}}" class="login-btn wechat" hover-class="login-btn-hover" bindtap="onWechatMpLogin">
+      <text class="btn-text">微信一键登录</text>
     </view>
     
-    <!-- 登录按钮区域 -->
-    <view class="auth-section">
-      <button 
-        wx:if="{{!isLoggingIn && !showSkip}}"
-        bindtap="loginWithWeChat"
-        class="login-button primary-btn"
-      >
-        <view class="btn-content">
-          <view class="wechat-icon">💬</view>
-          <text class="btn-text">微信一键登录</text>
-        </view>
-      </button>
-      
-      <!-- 加载状态 -->
-      <view wx:if="{{isLoggingIn}}" class="loading-section">
-        <view class="loading-spinner">
-          <view class="spinner-dot"></view>
-          <view class="spinner-dot"></view>
-          <view class="spinner-dot"></view>
-        </view>
-        <text class="loading-text">正在初始化...</text>
-      </view>
-      
-      <!-- 跳过按钮（开发用） -->
-      <view wx:if="{{showSkip}}" class="skip-section">
-        <button bindtap="skipLogin" class="skip-button secondary-btn">
-          <text class="btn-text">跳过登录（测试用）</text>
-        </button>
-      </view>
+    <!-- 加载状态 -->
+    <view wx:if="{{isLoggingIn}}" class="loading-section">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">正在登录...</text>
     </view>
     
-    <!-- 隐私说明 -->
-    <view class="privacy-section">
-      <text class="privacy-text">🔒 您的数据安全存储在云端</text>
-      <text class="privacy-text">📋 登录后可享受个性化推荐服务</text>
+    <!-- 协议说明（按钮下方） -->
+    <view wx:if="{{!isLoggingIn}}" class="agreement-footer">
+      <text class="agreement-footer-text" bindtap="showPrivacyPolicy">登录即代表同意隐私协议</text>
     </view>
   </view>
-  
-  <!-- 底部装饰 -->
-  <view class="footer-decoration"></view>
 </view>
