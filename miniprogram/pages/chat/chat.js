@@ -153,34 +153,78 @@ Page({
       return;
     }
     
-    // 调用云函数获取外卖平台跳转信息
-    wx.cloud.callFunction({
-      name: 'openDeliveryPlatform',
-      data: {
-        platform: 'meituan', // 默认美团，可以根据用户偏好调整
-        location: { lat: 39.9042, lng: 116.4074 }, // 默认北京坐标，实际应该获取用户位置
-        cuisine: recommendation.cuisine
+    // 获取用户当前位置
+    wx.getLocation({
+      type: 'wgs84',
+      success: (res) => {
+        const location = {
+          lat: res.latitude,
+          lng: res.longitude
+        };
+        
+        // 调用云函数获取外卖平台跳转信息
+        wx.cloud.callFunction({
+          name: 'openDeliveryPlatform',
+          data: {
+            platform: 'meituan', // 默认美团，可以根据用户偏好调整
+            location: location,
+            cuisine: recommendation.cuisine
+          },
+          success: res => {
+            if (res.result.success) {
+              wx.showToast({
+                title: `跳转到${res.result.platform}`,
+                icon: 'success'
+              });
+              // 在真实环境中，这里应该使用 wx.navigateToMiniProgram 或 wx.openUrl
+              // 由于测试环境限制，暂时只显示提示
+            } else {
+              wx.showToast({
+                title: '跳转失败，请手动打开外卖App',
+                icon: 'none'
+              });
+            }
+          },
+          fail: err => {
+            console.error('外卖平台跳转失败:', err);
+            wx.showToast({
+              title: '跳转失败，请手动打开外卖App',
+              icon: 'none'
+            });
+          }
+        });
       },
-      success: res => {
-        if (res.result.success) {
-          wx.showToast({
-            title: `跳转到${res.result.platform}`,
-            icon: 'success'
-          });
-          // 在真实环境中，这里应该使用 wx.navigateToMiniProgram 或 wx.openUrl
-          // 由于测试环境限制，暂时只显示提示
-        } else {
-          wx.showToast({
-            title: '跳转失败，请手动打开外卖App',
-            icon: 'none'
-          });
-        }
-      },
-      fail: err => {
-        console.error('外卖平台跳转失败:', err);
-        wx.showToast({
-          title: '跳转失败，请手动打开外卖App',
-          icon: 'none'
+      fail: (err) => {
+        console.error('获取位置失败:', err);
+        // 如果获取位置失败，使用默认坐标
+        const defaultLocation = { lat: 39.9042, lng: 116.4074 };
+        wx.cloud.callFunction({
+          name: 'openDeliveryPlatform',
+          data: {
+            platform: 'meituan',
+            location: defaultLocation,
+            cuisine: recommendation.cuisine
+          },
+          success: res => {
+            if (res.result.success) {
+              wx.showToast({
+                title: `跳转到${res.result.platform}`,
+                icon: 'success'
+              });
+            } else {
+              wx.showToast({
+                title: '跳转失败，请手动打开外卖App',
+                icon: 'none'
+              });
+            }
+          },
+          fail: err => {
+            console.error('外卖平台跳转失败:', err);
+            wx.showToast({
+              title: '跳转失败，请手动打开外卖App',
+              icon: 'none'
+            });
+          }
         });
       }
     });
@@ -219,10 +263,12 @@ Page({
     
     switch (state) {
       case 'greeting':
-        this.showPreferenceCard();
+        this.handleCuisinePreference(userInput);
         break;
       case 'collecting_preferences':
-        this.showPreferenceCard();
+        // 处理偏好卡片的点击，而不是文本输入
+        // 文本输入应该进入菜系收集
+        this.handleCuisinePreference(userInput);
         break;
       case 'collecting_cuisines':
         this.handleMealTypePreference(userInput);
@@ -243,6 +289,7 @@ Page({
         this.handleCookingPreference(userInput);
         break;
       case 'collecting_cooking_preference':
+      case 'collecting_cooking_preference_done':
         this.generateRecommendation();
         break;
       case 'recommending':
@@ -423,8 +470,8 @@ Page({
     
     // 简单的过滤逻辑
     let filteredRecipes = allRecipes.filter(recipe => {
-      // 检查菜系（我们主要支持中餐）
-      if (!prefs.cuisines.includes('中餐') && !prefs.cuisines.includes('中餐')) {
+      // 检查菜系匹配
+      if (prefs.cuisines.length > 0 && !prefs.cuisines.includes(recipe.cuisine)) {
         return false;
       }
       
