@@ -12,30 +12,30 @@ exports.main = async (event, context) => {
   const openid = wxContext.OPENID
 
   try {
-    // 检查用户是否已存在
-    const userRecord = await db.collection('users').where({
+    // 检查用户是否已存在（使用 user_preferences 集合，统一集合名称）
+    const userRecord = await db.collection('user_preferences').where({
       _openid: openid
     }).get()
 
     if (userRecord.data.length > 0) {
       return {
         exists: true,
-        userInfo: userRecord.data[0].userInfo || null,
-        preferences: userRecord.data[0].preferences || null
+        preferences: userRecord.data[0].preferences || null,
+        userInfo: userRecord.data[0].userInfo || null
       }
     } else {
       return {
         exists: false,
-        userInfo: null,
-        preferences: null
+        preferences: null,
+        userInfo: null
       }
     }
   } catch (error) {
     console.error('检查用户存在性失败:', error)
     return {
       exists: false,
-      userInfo: null,
       preferences: null,
+      userInfo: null,
       error: error.message
     }
   }

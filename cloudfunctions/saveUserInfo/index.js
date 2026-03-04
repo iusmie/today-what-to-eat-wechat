@@ -8,35 +8,34 @@ cloud.init({
 const db = cloud.database()
 
 exports.main = async (event, context) => {
-  const { userInfo, type, code } = event
+  const { userInfo, preferences } = event
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
 
   try {
     // 检查用户是否已存在
-    const userRecord = await db.collection('users').where({
+    const userRecord = await db.collection('user_preferences').where({
       _openid: openid
     }).get()
 
-    const userData = {
-      userInfo: userInfo || {
-        nickName: '微信用户',
-        avatarUrl: ''
-      },
-      updatedAt: new Date()
-    }
-
     if (userRecord.data.length > 0) {
       // 更新现有用户信息
-      await db.collection('users').doc(userRecord.data[0]._id).update({
-        data: userData
+      await db.collection('user_preferences').doc(userRecord.data[0]._id).update({
+        data: {
+          userInfo: userInfo || userRecord.data[0].userInfo,
+          preferences: preferences || userRecord.data[0].preferences,
+          updatedAt: new Date()
+        }
       })
     } else {
       // 创建新用户记录
-      await db.collection('users').add({
+      await db.collection('user_preferences').add({
         data: {
-          ...userData,
-          preferences: {
+          userInfo: userInfo || {
+            nickName: '微信用户',
+            avatarUrl: ''
+          },
+          preferences: preferences || {
             cuisines: [],
             mealTypes: [],
             dietaryRestrictions: [],
@@ -45,7 +44,8 @@ exports.main = async (event, context) => {
             difficultyLevel: '中等',
             cookingPreference: '自己做'
           },
-          createdAt: new Date()
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       })
     }
