@@ -13,14 +13,14 @@ exports.main = async (event, context) => {
   const openid = wxContext.OPENID
 
   try {
-    // 检查用户是否已存在
-    const userRecord = await db.collection('users').where({
+    // 检查用户是否已存在（使用统一的 user_preferences 集合）
+    const userRecord = await db.collection('user_preferences').where({
       _openid: openid
     }).get()
 
     if (userRecord.data.length > 0) {
       // 更新现有用户偏好
-      await db.collection('users').doc(userRecord.data[0]._id).update({
+      await db.collection('user_preferences').doc(userRecord.data[0]._id).update({
         data: {
           preferences: preferences,
           updatedAt: new Date()
@@ -28,7 +28,7 @@ exports.main = async (event, context) => {
       })
     } else {
       // 创建新用户记录
-      await db.collection('users').add({
+      await db.collection('user_preferences').add({
         data: {
           preferences: preferences,
           createdAt: new Date(),

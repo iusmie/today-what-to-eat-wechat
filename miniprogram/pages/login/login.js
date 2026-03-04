@@ -100,130 +100,134 @@ Page({
    * 调用 wx.login() 获取临时 code，发往后端换取 openid/session_key 完成登录
    */
   onWechatMpLogin() {
+    // 检查用户是否同意协议
+    if (!this.checkAgreement()) {
+      return;
+    }
+    
     this.setData({ isLoggingIn: true });
 
-    wx.login({
-      success: (res) => {
-        if (res.code) {
-          // 将 code 发往后端，后端调 auth.code2Session 换取 openid、session_key
-          this.handleThirdPartyLogin('wechat', { code: res.code });
+    // 获取用户信息（需要用户授权）
+    wx.getUserProfile({
+      desc: '用于完善用户资料和个性化推荐',
+      success: (profileRes) => {
+        // 获取登录凭证
+        wx.login({
+          success: (loginRes) => {
+            if (loginRes.code) {
+              // 调用云函数进行完整登录流程
+              this.handleCompleteLogin(profileRes.userInfo, loginRes.code);
+            } else {
+              wx.showToast({
+                title: loginRes.errMsg || '微信登录失败',
+                icon: 'none'
+              });
+              this.setData({ isLoggingIn: false });
+            }
+          },
+          fail: (loginErr) => {
+            console.error('wx.login 失败', loginErr);
+            wx.showToast({
+              title: loginErr.errMsg || '微信登录失败',
+              icon: 'none'
+            });
+            this.setData({ isLoggingIn: false });
+          }
+        });
+      },
+      fail: (profileErr) => {
+        console.error('获取用户信息失败', profileErr);
+        wx.showModal({
+          title: '授权失败',
+          content: '需要您的授权才能使用完整功能，是否重新授权？',
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              // 用户确认重新授权
+              this.onWechatMpLogin();
+            } else {
+              // 显示跳过选项
+              this.setData({ 
+                isLoggingIn: false, 
+                isLoading: false,
+                showSkip: true 
+              });
+            }
+          }
+        });
+      }
+    });
+  },
+
+  /**
+   * 处理完整登录流程
+   * @param {object} userInfo - 用户基本信息
+   * @param {string} code - 微信登录凭证
+   */
+  handleCompleteLogin(userInfo, code) {
+    const that = this;
+    const app = getApp();
+    
+    // 调用云函数进行登录和用户信息保存
+    wx.cloud.callFunction({
+      name: 'saveUserInfo',
+      data: {
+        userInfo: userInfo,
+        code: code,
+        preferences: {
+          cuisines: ['中餐'],
+          mealTypes: ['午餐', '晚餐'],
+          dietaryRestrictions: [],
+          healthConditions: [],
+          maxPrepTime: 60,
+          difficultyLevel: '中等',
+          cookingPreference: '自己做'
+        }
+      },
+      success: async (res) => {
+        console.log('登录成功（云函数）', res);
+        
+        if (res.result.success) {
+          // 保存用户信息到全局
+          app.globalData.userInfo = userInfo;
+          app.globalData.userPreferences = res.result.preferences || app.globalData.userPreferences;
+          
+          // 保存到本地存储
+          try {
+            wx.setStorageSync('userInfo', userInfo);
+            wx.setStorageSync('userPreferences', app.globalData.userPreferences);
+          } catch (e) {
+            console.error('保存用户信息到本地存储失败', e);
+          }
+          
+          wx.showToast({
+            title: '登录成功',
+            icon: 'success',
+            duration: 1500
+          });
+          
+          // 跳转到聊天页面
+          setTimeout(() => {
+            wx.redirectTo({
+              url: '/pages/chat/chat'
+            });
+          }, 1500);
         } else {
           wx.showToast({
-            title: res.errMsg || '微信登录失败',
+            title: res.result.message || '登录失败，请重试',
             icon: 'none'
           });
           this.setData({ isLoggingIn: false });
         }
       },
       fail: (err) => {
-        console.error('wx.login 失败', err);
+        console.error('云函数调用失败', err);
         wx.showToast({
-          title: err.errMsg || '微信登录失败',
+          title: '登录失败，请重试',
           icon: 'none'
         });
         this.setData({ isLoggingIn: false });
       }
     });
-  },
-
-  /**
-   * 处理第三方登录
-   * @param {string} type - 登录类型：wechat-微信
-   * @param {object} data - 登录相关数据
-   */
-  handleThirdPartyLogin(type, data) {
-    const that = this;
-    const app = getApp();
-    
-    // 先尝试调用云函数进行登录
-    wx.cloud.callFunction({
-      name: 'saveUserInfo',
-      data: {
-        type: type,
-        code: data.code
-      },
-      success: async (res) => {
-        console.log('登录成功（云函数）', res);
-        
-        // 模拟登录延迟，提供更好的用户体验
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // 保存用户信息到全局
-        const openId = res.result?.openId || `mock_openid_${Date.now()}`;
-        app.globalData.userInfo = {
-          nickName: '微信用户',
-          avatarUrl: '',
-          openId: openId
-        };
-        
-        // 保存到本地存储
-        try {
-          wx.setStorageSync('userInfo', app.globalData.userInfo);
-        } catch (e) {
-          console.error('保存用户信息到本地存储失败', e);
-        }
-        
-        wx.showToast({
-          title: '登录成功',
-          icon: 'success',
-          duration: 1500
-        });
-        
-        // 跳转到聊天页面
-        setTimeout(() => {
-          wx.redirectTo({
-            url: '/pages/chat/chat'
-          });
-        }, 1500);
-      },
-      fail: (err) => {
-        console.error('云函数调用失败，使用本地登录', err);
-        // 降级方案：如果云函数调用失败，使用本地存储
-        that.handleLocalLogin(type, data);
-      }
-    });
-  },
-
-  /**
-   * 本地登录（降级方案）
-   * 当云函数不可用时，使用本地存储保存用户信息
-   */
-  handleLocalLogin(type, data) {
-    const app = getApp();
-    
-    // 生成一个临时的用户ID
-    const userId = `local_user_${Date.now()}`;
-    
-    // 保存用户信息到全局
-    app.globalData.userInfo = {
-      nickName: '微信用户',
-      avatarUrl: '',
-      openId: userId,
-      isLocalUser: true // 标记为本地用户
-    };
-    
-    // 保存到本地存储
-    try {
-      wx.setStorageSync('userInfo', app.globalData.userInfo);
-      wx.setStorageSync('userCode', data.code); // 保存code，后续可以用于换取openid
-    } catch (e) {
-      console.error('保存用户信息到本地存储失败', e);
-    }
-    
-    wx.showToast({
-      title: '登录成功',
-      icon: 'success',
-      duration: 1500
-    });
-    
-    // 跳转到聊天页面
-    setTimeout(() => {
-      wx.redirectTo({
-        url: '/pages/chat/chat'
-      });
-    }, 1500);
-    
-    this.setData({ isLoggingIn: false });
   },
 
   /**
@@ -250,4 +254,3 @@ Page({
     });
   }
 });
-

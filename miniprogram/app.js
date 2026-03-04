@@ -62,85 +62,62 @@ App({
   // 检查是否首次登录
   checkFirstLogin() {
     const that = this;
-    const db = wx.cloud.database();
     
     if (!this.globalData.userInfo) return;
     
-    // 使用与云函数一致的集合名称 'user_preferences'
-    db.collection('user_preferences')
-      .where({
-        _openid: wx.cloud.CloudID(this.globalData.userInfo.openId)
-      })
-      .get()
-      .then(res => {
-        if (res.data.length === 0) {
-          // 首次登录
+    // 由于无法直接获取 openid，这里改为调用云函数检查
+    wx.cloud.callFunction({
+      name: 'checkUserExists',
+      success: res => {
+        if (res.result && res.result.exists) {
+          this.globalData.hasCompletedOnboarding = true;
+          this.globalData.userPreferences = res.result.preferences || this.globalData.userPreferences;
+        } else {
           this.globalData.isFirstLogin = true;
           this.globalData.hasCompletedOnboarding = false;
-        } else {
-          // 已有偏好设置
-          this.globalData.hasCompletedOnboarding = true;
-          this.globalData.userPreferences = res.data[0].preferences || this.globalData.userPreferences;
         }
         console.log('用户偏好检查完成:', {
           isFirstLogin: this.globalData.isFirstLogin,
           hasCompletedOnboarding: this.globalData.hasCompletedOnboarding
         });
-      })
-      .catch(err => {
+      },
+      fail: err => {
         console.error('检查用户偏好失败:', err);
         this.globalData.isFirstLogin = true;
         this.globalData.hasCompletedOnboarding = false;
-      });
+      }
+    });
   },
 
   // 保存用户偏好
   saveUserPreferences(preferences) {
     const that = this;
-    const db = wx.cloud.database();
     
     if (!this.globalData.userInfo) {
       console.warn('用户未登录，无法保存偏好');
       return Promise.reject('用户未登录');
     }
     
-    return db.collection('user_preferences')
-      .where({
-        _openid: wx.cloud.CloudID(this.globalData.userInfo.openId)
-      })
-      .get()
-      .then(res => {
-        if (res.data.length > 0) {
-          // 更新现有记录
-          return db.collection('user_preferences')
-            .doc(res.data[0]._id)
-            .update({
-              data: {
-                preferences: preferences,
-                updatedAt: new Date()
-              }
-            });
-        } else {
-          // 创建新记录
-          return db.collection('user_preferences')
-            .add({
-              data: {
-                preferences: preferences,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              }
-            });
+    // 调用云函数保存偏好
+    return new Promise((resolve, reject) => {
+      wx.cloud.callFunction({
+        name: 'saveUserPreferences',
+        data: { preferences: preferences },
+        success: res => {
+          if (res.result && res.result.success) {
+            this.globalData.userPreferences = preferences;
+            this.globalData.hasCompletedOnboarding = true;
+            console.log('用户偏好保存成功');
+            resolve(res.result);
+          } else {
+            reject(new Error('保存失败'));
+          }
+        },
+        fail: err => {
+          console.error('保存用户偏好失败:', err);
+          reject(err);
         }
-      })
-      .then(res => {
-        this.globalData.userPreferences = preferences;
-        this.globalData.hasCompletedOnboarding = true;
-        console.log('用户偏好保存成功');
-        return res;
-      })
-      .catch(err => {
-        console.error('保存用户偏好失败:', err);
-        return Promise.reject(err);
       });
+    });
   }
 });
