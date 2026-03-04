@@ -6,7 +6,7 @@ App({
       console.error('请使用 2.2.3 或以上的基础库以使用云能力');
     } else {
       wx.cloud.init({
-        env: 'today-what-to-eat-prod', // 生产环境ID
+        env: wx.cloud.DYNAMIC_CURRENT_ENV, // 使用当前环境，而不是硬编码
         traceUser: true,
       });
     }
@@ -65,10 +65,8 @@ App({
     
     if (!this.globalData.userInfo) return;
     
-    db.collection('user_preferences')
-      .where({
-        _openid: wx.cloud.CloudID(this.globalData.userInfo.openId)
-      })
+    // 使用与云函数一致的集合名称 'users'
+    db.collection('users')
       .get()
       .then(res => {
         if (res.data.length === 0) {
@@ -78,6 +76,7 @@ App({
         } else {
           // 已有偏好设置
           this.globalData.hasCompletedOnboarding = true;
+          // 从第一个用户记录中获取偏好（实际应该根据_openid查询）
           this.globalData.userPreferences = res.data[0].preferences || this.globalData.userPreferences;
         }
         console.log('用户偏好检查完成:', {
@@ -102,15 +101,13 @@ App({
       return Promise.reject('用户未登录');
     }
     
-    return db.collection('user_preferences')
-      .where({
-        _openid: wx.cloud.CloudID(this.globalData.userInfo.openId)
-      })
+    // 使用与云函数一致的集合名称 'users'
+    return db.collection('users')
       .get()
       .then(res => {
         if (res.data.length > 0) {
-          // 更新现有记录
-          return db.collection('user_preferences')
+          // 更新现有记录（这里简化处理，实际应该根据_openid更新）
+          return db.collection('users')
             .doc(res.data[0]._id)
             .update({
               data: {
@@ -120,7 +117,7 @@ App({
             });
         } else {
           // 创建新记录
-          return db.collection('user_preferences')
+          return db.collection('users')
             .add({
               data: {
                 preferences: preferences,

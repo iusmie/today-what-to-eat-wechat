@@ -8,30 +8,31 @@ cloud.init({
 const db = cloud.database()
 
 exports.main = async (event, context) => {
-  const { userInfo } = event
+  const { userInfo, preferences } = event
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
 
   try {
     // 检查用户是否已存在
-    const userRecord = await db.collection('users').where({
+    const userRecord = await db.collection('user_preferences').where({
       _openid: openid
     }).get()
 
     if (userRecord.data.length > 0) {
       // 更新现有用户信息
-      await db.collection('users').doc(userRecord.data[0]._id).update({
+      await db.collection('user_preferences').doc(userRecord.data[0]._id).update({
         data: {
           userInfo: userInfo,
+          preferences: preferences || userRecord.data[0].preferences,
           updatedAt: new Date()
         }
       })
     } else {
       // 创建新用户记录
-      await db.collection('users').add({
+      await db.collection('user_preferences').add({
         data: {
           userInfo: userInfo,
-          preferences: {
+          preferences: preferences || {
             cuisines: [],
             mealTypes: [],
             dietaryRestrictions: [],
@@ -54,7 +55,8 @@ exports.main = async (event, context) => {
     console.error('保存用户信息失败:', error)
     return {
       success: false,
-      message: '保存失败，请稍后重试'
+      message: '保存失败，请稍后重试',
+      error: error.message
     }
   }
 }
